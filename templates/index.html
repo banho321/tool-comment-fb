@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Comment Facebook - Dashboard</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2 { color: #1877f2; border-bottom: 2px solid #e7f3ff; padding-bottom: 10px; }
+        h1 { text-align: center; }
+        .stats { display: flex; justify-content: space-around; text-align: center; margin: 20px 0; }
+        .stat-box { padding: 20px; background-color: #e7f3ff; border-radius: 8px; width: 22%; }
+        .stat-box h3 { margin: 0; font-size: 2.5em; color: #1877f2; }
+        .stat-box p { margin: 5px 0 0; color: #606770; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f5f6f7; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .status { padding: 5px 10px; border-radius: 15px; color: #fff; font-size: 0.9em; text-align: center; }
+        .status-new { background-color: #6c757d; }
+        .status-matched { background-color: #28a745; }
+        .status-commented { background-color: #1877f2; }
+        .status-skipped_blacklist { background-color: #ffc107; color: #212529; }
+        .status-skipped_age { background-color: #dc3545; }
+        .status-error { background-color: #dc3545; }
+        a { color: #1877f2; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .refresh-btn { display: block; width: 120px; margin: 20px auto; padding: 10px; background-color: #1877f2; color: white; text-align: center; border-radius: 5px; text-decoration: none; font-weight: bold; }
+        .refresh-btn:hover { background-color: #166fe5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard - Bot Comment Facebook</h1>
+
+        <div class="stats">
+            <div class="stat-box">
+                <h3 id="total-scanned">{{ stats.total_scanned }}</h3>
+                <p>Bài viết đã quét</p>
+            </div>
+            <div class="stat-box">
+                <h3 id="total-matched">{{ stats.total_matched }}</h3>
+                <p>Bài viết khớp</p>
+            </div>
+            <div class="stat-box">
+                <h3 id="total-commented">{{ stats.total_commented }}</h3>
+                <p>Đã bình luận</p>
+            </div>
+            <div class="stat-box">
+                <h3 id="comments-today">{{ stats.comments_today }}</h3>
+                <p>Bình luận hôm nay</p>
+            </div>
+        </div>
+
+        <a href="/" class="refresh-btn">Làm mới</a>
+
+        <h2><a href="/posts">Danh sách bài viết gần đây</a></h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Post ID</th>
+                    <th>Group ID</th>
+                    <th>Thời gian quét</th>
+                    <th>Trạng thái</th>
+                    <th>Sản phẩm khớp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for post in recent_posts %}
+                <tr>
+                    <td><a href="https://facebook.com/{{ post.post_id.split('_')[-1] }}" target="_blank">{{ post.post_id }}</a></td>
+                    <td><a href="https://facebook.com/groups/{{ post.group_id }}" target="_blank">{{ post.group_id }}</a></td>
+                    <td>{{ post.crawled_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td><span class="status status-{{ post.status }}">{{ post.status }}</span></td>
+                    <td>{{ product_names.get(post.matched_product_id, 'N/A') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2><a href="/comments">Lịch sử bình luận</a></h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Thời gian</th>
+                    <th>Tài khoản</th>
+                    <th>Post ID</th>
+                    <th>Link sản phẩm</th>
+                    <th>Trạng thái</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comment in recent_comments %}
+                <tr>
+                    <td>{{ comment.commented_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ comment.account_id }}</td>
+                    <td><a href="https://facebook.com/{{ comment.post_id.split('_')[-1] }}" target="_blank">{{ comment.post_id }}</a></td>
+                    <td><a href="{{ comment.shopee_link }}" target="_blank">Link Shopee</a></td>
+                    <td><span class="status status-commented">{{ comment.status }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

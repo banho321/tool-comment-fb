@@ -1,0 +1,43 @@
+# Cấu hình chung
+settings:
+  log_level: "INFO"
+  max_posts_to_scan_per_group: 20 # Quét N bài viết mới nhất trong mỗi group
+  max_post_age_days: 3 # Bỏ qua bài viết cũ hơn X ngày
+  headless_browser: true # Chạy trình duyệt ở chế độ ẩn (true) hoặc hiển thị (false)
+  dry_run: false # Chế độ chạy thử, chỉ log match và không comment
+
+# Cấu hình cho việc comment
+commenter:
+  min_delay_seconds: 20 # Thời gian chờ tối thiểu giữa 2 lần comment
+  max_delay_seconds: 120 # Thời gian chờ tối đa giữa 2 lần comment
+  # Giới hạn số lượng comment
+  rate_limit:
+    max_comments_per_hour: 5
+    max_comments_per_day: 50
+  # Hành vi giống người
+  human_like_behavior:
+    scrolling_enabled: true
+    liking_enabled: true
+    max_likes_per_run: 2
+
+# Cấu hình cho việc lọc bài viết
+matcher:
+  # Các từ khóa để loại trừ bài viết (viết thường, không dấu)
+  blacklist:
+    - "tuyen dai ly"
+    - "cong tac vien"
+    - "ctv"
+    - "ban si"
+    - "gia si"
+    - "tuyen si"
+  # Tùy chọn so khớp mờ
+  fuzzy_matching:
+    enabled: false
+    min_ratio: 0.92 # Tỷ lệ tương đồng tối thiểu (Levenshtein)
+
+# Cấu hình Proxy (để trống nếu không dùng)
+# Ví dụ:
+# proxy:
+#   acc1: "http://user:pass@host:port"
+#   acc2: "socks5://user:pass@host:port"
+proxy: {}
