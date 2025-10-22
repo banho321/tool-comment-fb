@@ -1,0 +1,29 @@
+[Unit]
+Description=Facebook Bot Continuous Runner
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/tool-fb
+ExecStart=/usr/bin/python3 /home/ubuntu/tool-fb/continuous_runner.py --account acc1 --interval 30
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables
+Environment=PYTHONPATH=/home/ubuntu/tool-fb
+Environment=DISPLAY=:99
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/ubuntu/tool-fb
+
+[Install]
+WantedBy=multi-user.target

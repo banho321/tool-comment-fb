@@ -19,8 +19,19 @@ async def run_login_helper(account_id: str):
     logging.info(f"Sử dụng thư mục session cho tài khoản '{account_id}': {account_dir}")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
-        context = await browser.new_context()
+        # Use Firefox instead of Chromium for better Facebook compatibility
+        browser = await p.firefox.launch(
+            headless=False,
+            args=[
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage'
+            ]
+        )
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+            viewport={'width': 1920, 'height': 1080}
+        )
         page = await context.new_page()
 
         await page.goto("https://www.facebook.com")

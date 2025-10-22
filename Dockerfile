@@ -22,7 +22,16 @@ COPY . .
 # Mở cổng 5000 để có thể truy cập dashboard từ bên ngoài container
 EXPOSE 5000
 
+# Tạo thư mục cần thiết
+RUN mkdir -p sessions data logs
+
+# Set permissions
+RUN chmod +x main.py continuous_runner.py
+
+# Set environment variables for headless Firefox
+ENV DISPLAY=:99
+ENV PYTHONPATH=/app
+
 # Lệnh mặc định khi container khởi chạy
-# Chạy bot với các tham số mặc định. Bạn có thể ghi đè khi chạy container.
-# Ví dụ: docker run <image_name> --account my_acc --dry-run
-CMD ["python", "main.py", "--account", "default_account"]
+# Chạy continuous runner với các tham số mặc định
+CMD ["python", "continuous_runner.py", "--account", "acc1", "--interval", "30"]

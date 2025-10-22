@@ -42,10 +42,20 @@ class FacebookCommenter:
         logging.info(f"Tìm thấy {len(posts_to_comment)} bài viết để bình luận.")
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=self.config['settings'].get('headless_browser', True)
+            # Use Firefox instead of Chromium for better Facebook compatibility
+            browser = await p.firefox.launch(
+                headless=self.config['settings'].get('headless_browser', True),
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage'
+                ]
             )
-            context = await browser.new_context(storage_state=self.storage_state_path)
+            context = await browser.new_context(
+                storage_state=self.storage_state_path,
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+                viewport={'width': 1920, 'height': 1080}
+            )
             page = await context.new_page()
 
             for post in posts_to_comment:

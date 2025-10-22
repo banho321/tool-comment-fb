@@ -1,4 +1,1 @@
-{
-    "cookies": [],
-    "origins": []
-}
+{"cookies": [{"name": "datr", "value": "nQ35aCKQu10SkPvIVAdyEv_o", "domain": ".facebook.com", "path": "/", "expires": 1795712413.83948, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "sb", "value": "nQ35aF4NF_ay7I6OaN7m403d", "domain": ".facebook.com", "path": "/", "expires": 1795712455.299937, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "c_user", "value": "100058102883825", "domain": ".facebook.com", "path": "/", "expires": 1792688455.29982, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "xs", "value": "47%3AkjlS6EIlYCKsqA%3A2%3A1761152453%3A-1%3A-1", "domain": ".facebook.com", "path": "/", "expires": 1792688455.299976, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "fr", "value": "08vwyaO4nXLTm9L8W.AWdslQsrqHkm5eyyleUXXKI1bkIuSYuulTNfx8dtJrIeNdQoLAQ.Bo-Q2d..AAA.0.0.Bo-Q3H.AWf1N6RCXWfAnz0kZuiVnGSVFTw", "domain": ".facebook.com", "path": "/", "expires": 1768928455.598315, "httpOnly": true, "secure": true, "sameSite": "None"}], "origins": []}

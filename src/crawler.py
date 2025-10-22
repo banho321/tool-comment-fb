@@ -26,24 +26,57 @@ class FacebookCrawler:
 
     async def run(self):
         """Khởi chạy crawler."""
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=self.config['settings'].get('headless_browser', True)
-            )
-            context = await browser.new_context(
-                storage_state=self.storage_state_path,
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36"
-            )
-            page = await context.new_page()
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                async with async_playwright() as p:
+                    # Use Firefox instead of Chromium for better Facebook compatibility
+                    browser = await p.firefox.launch(
+                        headless=self.config['settings'].get('headless_browser', True),
+                        args=[
+                            '--no-sandbox',
+                            '--disable-setuid-sandbox',
+                            '--disable-dev-shm-usage'
+                        ]
+                    )
+                    context = await browser.new_context(
+                        storage_state=self.storage_state_path,
+                        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+                        viewport={'width': 1920, 'height': 1080}
+                    )
+                    page = await context.new_page()
+                    
+                    # Thêm event listeners để xử lý lỗi
+                    page.on("pageerror", lambda error: logging.error(f"Page error: {error}"))
+                    page.on("crash", lambda: logging.error("Page crashed"))
+                    page.on("close", lambda: logging.warning("Page closed unexpectedly"))
 
-            logging.info(f"Bắt đầu quét cho tài khoản: {self.account_id}")
+                    logging.info(f"Bắt đầu quét cho tài khoản: {self.account_id}")
 
-            for group_id in self.groups:
-                await self._crawl_group(page, group_id.strip())
+                    for group_id in self.groups:
+                        try:
+                            await self._crawl_group(page, group_id.strip())
+                        except Exception as e:
+                            logging.error(f"Lỗi khi crawl group {group_id}: {e}")
+                            # Tiếp tục với group tiếp theo thay vì dừng toàn bộ
+                            continue
 
-            await context.close()
-            await browser.close()
-            logging.info("Hoàn tất quá trình quét.")
+                    await context.close()
+                    await browser.close()
+                    logging.info("Hoàn tất quá trình quét.")
+                    break  # Thành công, thoát khỏi retry loop
+                    
+            except Exception as e:
+                retry_count += 1
+                logging.error(f"Lỗi trong lần thử {retry_count}/{max_retries}: {e}")
+                if retry_count < max_retries:
+                    logging.info(f"Chờ 30 giây trước khi thử lại...")
+                    await asyncio.sleep(30)
+                else:
+                    logging.error("Đã thử tối đa số lần, dừng crawler.")
+                    raise
 
     async def _crawl_group(self, page: Page, group_id: str):
         """Quét một group cụ thể."""
@@ -51,82 +84,167 @@ class FacebookCrawler:
         logging.info(f"Đang quét group: {group_url}")
 
         try:
-            await page.goto(group_url, wait_until="networkidle", timeout=60000)
-            await page.wait_for_selector('div[role="feed"]', timeout=30000)
+            # Navigate to group
+            await page.goto(group_url, wait_until="domcontentloaded", timeout=30000)
+            
+            # Wait for page to load
+            await asyncio.sleep(5)
+            
+            # Check for redirects
+            current_url = page.url
+            if "login" in current_url or "facebook.com/groups" not in current_url:
+                logging.warning(f"Bị redirect về {current_url}, có thể session đã hết hạn")
+                return
+            
+            # Check for errors
+            error_selectors = [
+                'div[data-testid="error"]',
+                'div[role="alert"]',
+                'div[class*="error"]',
+                'div[class*="blocked"]',
+                'div[class*="restricted"]',
+                'div[class*="unavailable"]'
+            ]
+            
+            for error_selector in error_selectors:
+                try:
+                    if await page.locator(error_selector).count() > 0:
+                        error_text = await page.locator(error_selector).first.inner_text()
+                        logging.error(f"Group {group_id} bị chặn: {error_text}")
+                        return
+                except Exception:
+                    continue
+            
+            # Check for join requirements
+            try:
+                join_buttons = await page.locator('button:has-text("Tham gia"), button:has-text("Join"), button:has-text("Request to join")').count()
+                if join_buttons > 0:
+                    logging.warning(f"Group {group_id} yêu cầu tham gia trước khi xem feed")
+                    return
+            except Exception:
+                pass
+            
+            # Look for feed
+            feed_selectors = [
+                'div[role="feed"]',
+                'div[data-pagelet="FeedUnit_0"]',
+                'div[aria-label*="feed"]',
+                'div[data-testid="fbfeed_story"]',
+                'div[role="main"] div[role="article"]',
+                'div[data-pagelet*="Feed"]'
+            ]
+            
+            feed_found = False
+            for selector in feed_selectors:
+                try:
+                    if await page.locator(selector).count() > 0:
+                        logging.info(f"Tìm thấy feed với selector: {selector}")
+                        feed_found = True
+                        break
+                except Exception:
+                    continue
+            
+            if not feed_found:
+                logging.warning(f"Không tìm thấy feed cho group {group_id}")
+                return
+            
+            # Process posts
+            await self._process_posts(page, group_id)
+            
         except TimeoutError:
-            logging.error(f"Không thể tải feed của group {group_id}. Có thể group không tồn tại hoặc cần quyền truy cập.")
+            logging.error(f"Timeout khi truy cập group {group_id}")
             return
         except Exception as e:
             logging.error(f"Lỗi khi truy cập group {group_id}: {e}")
             return
 
-        # Cuộn trang để tải thêm bài viết
+    async def _process_posts(self, page: Page, group_id: str):
+        """Xử lý các bài viết trong group."""
         max_posts = self.config['settings'].get('max_posts_to_scan_per_group', 20)
-        post_selectors = 'div[role="article"]'
-
-        for _ in range(5): # Cuộn tối đa 5 lần
+        
+        # Scroll to load more posts
+        for _ in range(3):
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(5) # Chờ để bài viết mới tải
-            if await page.locator(post_selectors).count() >= max_posts:
-                break
-
-        # Lấy các bài viết
-        posts = await page.locator(post_selectors).all()
-        logging.info(f"Tìm thấy {len(posts)} bài viết trong group {group_id}. Bắt đầu trích xuất...")
-
+            await asyncio.sleep(3)
+        
+        # Find posts
+        post_selectors = [
+            'div[role="article"]',
+            'div[data-pagelet*="FeedUnit"]',
+            'div[data-testid="fbfeed_story"]',
+            'div[aria-label*="story"]'
+        ]
+        
+        posts = []
+        for selector in post_selectors:
+            try:
+                posts = await page.locator(selector).all()
+                if posts:
+                    logging.info(f"Tìm thấy {len(posts)} bài viết với selector: {selector}")
+                    break
+            except Exception:
+                continue
+        
+        if not posts:
+            logging.warning(f"Không tìm thấy bài viết nào trong group {group_id}")
+            return
+        
+        # Process posts
         for i, post_element in enumerate(posts[:max_posts]):
             try:
+                await asyncio.sleep(1)  # Human-like delay
+                
                 full_text = await post_element.inner_text()
                 if not full_text:
                     continue
-
-                # Lấy link bài viết (permalink) để có post_id
-                post_id = None
-                # Selector cho link thời gian của bài viết, thường chứa permalink
-                permalink_element = post_element.locator('a[href*="/posts/"]:not([role="button"])').first
-
-                if await permalink_element.count() > 0:
-                    href = await permalink_element.get_attribute('href')
-                    # Trích xuất post_id từ URL
-                    parsed_url = urlparse(href)
-                    path_parts = parsed_url.path.strip('/').split('/')
-                    if 'posts' in path_parts:
-                        post_id_index = path_parts.index('posts') + 1
-                        if post_id_index < len(path_parts):
-                            post_id = path_parts[post_id_index]
-
-                # Nếu không có post_id thì bỏ qua
+                
+                # Extract post ID
+                post_id = await self._extract_post_id(post_element, group_id)
                 if not post_id:
-                    logging.warning("Không tìm thấy post_id, bỏ qua bài viết.")
                     continue
-
-                # Facebook đôi khi dùng fbid trong query string
-                if post_id.isnumeric() == False:
-                    parsed_url = urlparse(href)
-                    query_params = parse_qs(parsed_url.query)
-                    if 'story_fbid' in query_params:
-                        post_id = query_params['story_fbid'][0]
-                    else:
-                         logging.warning(f"Post ID không hợp lệ: {post_id}, bỏ qua.")
-                         continue
-
-                # Lấy thời gian đăng bài
-                # Thường nằm trong attribute `aria-label` hoặc text của permalink
-                created_at = await permalink_element.text_content()
-
+                
+                # Save post data
                 post_data = {
-                    "post_id": f"{group_id}_{post_id}", # Tạo ID duy nhất
+                    "post_id": f"{group_id}_{post_id}",
                     "group_id": group_id,
-                    "created_at": created_at,
+                    "created_at": str(int(asyncio.get_event_loop().time())),
                     "full_text": full_text,
                     "normalized_text": normalize_text(full_text)
                 }
-
+                
                 logging.info(f"Đã xử lý bài viết: {post_data['post_id']}")
                 db.add_post(post_data)
-
+                
             except Exception as e:
-                logging.error(f"Lỗi khi xử lý một bài viết trong group {group_id}: {e}")
+                logging.error(f"Lỗi khi xử lý bài viết trong group {group_id}: {e}")
+
+    async def _extract_post_id(self, post_element, group_id: str) -> str:
+        """Trích xuất post ID từ element."""
+        try:
+            link_selectors = [
+                'a[href*="/posts/"]',
+                'a[href*="/permalink/"]',
+                'a[href*="/story.php"]'
+            ]
+            
+            for selector in link_selectors:
+                try:
+                    link_element = post_element.locator(selector).first
+                    if await link_element.count() > 0:
+                        href = await link_element.get_attribute('href')
+                        if href:
+                            parsed_url = urlparse(href)
+                            path_parts = parsed_url.path.strip('/').split('/')
+                            if 'posts' in path_parts:
+                                post_id_index = path_parts.index('posts') + 1
+                                if post_id_index < len(path_parts):
+                                    return path_parts[post_id_index]
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        
+        return None
 
 def main():
     parser = argparse.ArgumentParser(description="Quét các bài viết mới từ group Facebook.")

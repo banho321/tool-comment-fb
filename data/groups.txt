@@ -1,7 +1,6 @@
 # Dán link các group Facebook vào đây, mỗi link một dòng
 # Ví dụ:
-# https://www.facebook.com/groups/1234567890
+# https://www.facebook.com/groups/270937463263502
 # https://www.facebook.com/groups/0987654321
 # Hoặc chỉ cần group ID
-123456789012345
-543210987654321
+270937463263502
