@@ -2,6 +2,7 @@ import logging
 import re
 from datetime import datetime, timedelta
 import argparse
+from thefuzz import fuzz
 
 # Import các module tự viết
 from src.utils import load_config, load_products, normalize_text
@@ -120,6 +121,8 @@ class PostMatcher:
         Sử dụng regex word boundary để đảm bảo khớp chính xác từ.
         """
         text_to_search = post.get('normalized_text', '')
+        logging.debug(f"--- Matching Post ID: {post['post_id']} ---")
+        logging.debug(f"Normalized Post Text: {text_to_search[:200]}...")
 
         for product in self.products:
             # Lấy tên và các alias của sản phẩm
@@ -130,13 +133,30 @@ class PostMatcher:
                 norm_keyword = normalize_text(keyword)
                 if not norm_keyword: continue
 
-                # Tạo regex với word boundary (\b)
-                pattern = r'\b' + re.escape(norm_keyword) + r'\b'
+                logging.debug(f"Checking for keyword: '{norm_keyword}' (Product: {product['name']})")
+                # Bỏ \b để khớp linh hoạt hơn, ví dụ "balo" sẽ khớp với "balochongu"
+                pattern = re.escape(norm_keyword)
 
                 if re.search(pattern, text_to_search):
-                    return product # Trả về thông tin sản phẩm nếu khớp
+                    logging.debug(f"SUCCESS (Direct Match): Found keyword '{norm_keyword}' in post.")
+                    return product
 
-        # TODO: Triển khai fuzzy matching nếu cần
+        # Fuzzy Matching Fallback
+        fuzzy_config = self.matcher_config.get('fuzzy_matching', {})
+        if fuzzy_config.get('enabled', False):
+            min_ratio = fuzzy_config.get('min_ratio', 0.92)
+
+            for product in self.products:
+                keywords_to_check = [product['name']] + product.get('aliases', [])
+                for keyword in keywords_to_check:
+                    norm_keyword = normalize_text(keyword)
+                    if not norm_keyword: continue
+
+                    # Check for partial ratio, which is good for finding substrings
+                    ratio = fuzz.partial_ratio(norm_keyword, text_to_search)
+                    if ratio / 100.0 >= min_ratio:
+                        logging.debug(f"SUCCESS (Fuzzy Match): Keyword '{norm_keyword}' has ratio {ratio}% in post.")
+                        return product
 
         return None
 
