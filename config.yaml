@@ -33,8 +33,8 @@ matcher:
     - "tuyen si"
   # Tùy chọn so khớp mờ
   fuzzy_matching:
-    enabled: false
-    min_ratio: 0.92 # Tỷ lệ tương đồng tối thiểu (Levenshtein)
+    enabled: true
+    min_ratio: 0.85 # Tỷ lệ tương đồng tối thiểu (85%)
 
 # Cấu hình Proxy (để trống nếu không dùng)
 # Ví dụ:

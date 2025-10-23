@@ -204,19 +204,23 @@ class FacebookCrawler:
         
         # Process posts
         for i, post_element in enumerate(posts[:max_posts]):
+            if page.is_closed():
+                logging.error("Page was closed during post processing. Stopping crawl for this group.")
+                break
             try:
-                await asyncio.sleep(1)  # Human-like delay
-                
+                # Check if the element is still attached to the DOM
+                if not await post_element.is_visible():
+                    logging.warning("Post element is no longer visible, skipping.")
+                    continue
+
                 full_text = await post_element.inner_text()
                 if not full_text:
                     continue
                 
-                # Extract post ID
                 post_id = await self._extract_post_id(post_element, group_id)
                 if not post_id:
                     continue
                 
-                # Save post data
                 post_data = {
                     "post_id": f"{group_id}_{post_id}",
                     "group_id": group_id,
@@ -225,11 +229,17 @@ class FacebookCrawler:
                     "normalized_text": normalize_text(full_text)
                 }
                 
-                logging.info(f"Đã xử lý bài viết: {post_data['post_id']}")
+                logging.info(f"Processed post: {post_data['post_id']}")
                 db.add_post(post_data)
                 
             except Exception as e:
-                logging.error(f"Lỗi khi xử lý bài viết trong group {group_id}: {e}")
+                # Catch specific errors related to elements being detached or navigation
+                if "Target page, context or browser has been closed" in str(e) or \
+                   "Execution context was destroyed" in str(e):
+                    logging.error(f"Browser context lost while processing post {i} in group {group_id}. Aborting group crawl.")
+                    break # Exit the loop for this group
+                else:
+                    logging.warning(f"Could not process post {i} in group {group_id}: {e}")
 
     async def _extract_post_id(self, post_element, group_id: str) -> str:
         """Trích xuất post ID từ element."""
