@@ -134,10 +134,7 @@ class PostMatcher:
                 if not norm_keyword: continue
 
                 logging.debug(f"Checking for keyword: '{norm_keyword}' (Product: {product['name']})")
-                # Bỏ \b để khớp linh hoạt hơn, ví dụ "balo" sẽ khớp với "balochongu"
-                pattern = re.escape(norm_keyword)
-
-                if re.search(pattern, text_to_search):
+                if norm_keyword in text_to_search:
                     logging.debug(f"SUCCESS (Direct Match): Found keyword '{norm_keyword}' in post.")
                     return product
 

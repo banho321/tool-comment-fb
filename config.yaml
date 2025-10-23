@@ -3,7 +3,7 @@ settings:
   log_level: "INFO"
   max_posts_to_scan_per_group: 20 # Quét N bài viết mới nhất trong mỗi group
   max_post_age_days: 3 # Bỏ qua bài viết cũ hơn X ngày
-  headless_browser: false # Chạy trình duyệt ở chế độ ẩn (true) hoặc hiển thị (false)
+  headless_browser: true # Chạy trình duyệt ở chế độ ẩn (true) hoặc hiển thị (false)
   dry_run: false # Chế độ chạy thử, chỉ log match và không comment
 
 # Cấu hình cho việc comment
