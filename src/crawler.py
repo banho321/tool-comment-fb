@@ -1,4 +1,5 @@
 import asyncio
+import random
 from playwright.async_api import async_playwright, Page, TimeoutError
 from pathlib import Path
 import logging
@@ -152,20 +153,32 @@ class FacebookCrawler:
             await self._process_posts(page, group_id)
             
         except TimeoutError:
-            logging.error(f"Timeout khi truy cập group {group_id}")
-            return
+            logging.error(f"Timeout when accessing group {group_id}. The page took too long to load.")
         except Exception as e:
-            logging.error(f"Lỗi khi truy cập group {group_id}: {e}")
-            return
+            if "Target page, context or browser has been closed" in str(e):
+                logging.error(f"Browser closed unexpectedly for group {group_id}. Re-raising to trigger a restart.")
+                raise  # Re-raise to be caught by the main retry loop
+            logging.error(f"An unexpected error occurred while crawling group {group_id}: {e}")
 
     async def _process_posts(self, page: Page, group_id: str):
         """Xử lý các bài viết trong group."""
         max_posts = self.config['settings'].get('max_posts_to_scan_per_group', 20)
         
-        # Scroll to load more posts
-        for _ in range(3):
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(3)
+        # Scroll to load more posts with human-like behavior
+        for i in range(5):  # Scroll up to 5 times
+            scroll_amount = random.randint(500, 1500)  # Scroll a random amount
+            await page.evaluate(f"window.scrollBy(0, {scroll_amount})")
+
+            # Move mouse randomly
+            await page.mouse.move(random.randint(100, 800), random.randint(100, 800))
+
+            # Random delay
+            await asyncio.sleep(random.uniform(1.5, 4.0))
+
+            # 30% chance to scroll up a bit to simulate reading
+            if random.random() < 0.3:
+                await page.evaluate("window.scrollBy(0, -200)")
+                await asyncio.sleep(random.uniform(0.5, 1.5))
         
         # Find posts
         post_selectors = [

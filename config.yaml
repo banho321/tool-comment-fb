@@ -17,8 +17,9 @@ commenter:
   # Hành vi giống người
   human_like_behavior:
     scrolling_enabled: true
-    liking_enabled: true
-    max_likes_per_run: 2
+    liking_enabled: true # Bật/tắt chức năng tự động like
+    like_post_chance: 0.8 # 80% cơ hội sẽ like bài viết trước khi comment
+    typing_effect_enabled: true # Bật/tắt hiệu ứng gõ chữ
 
 # Cấu hình cho việc lọc bài viết
 matcher:

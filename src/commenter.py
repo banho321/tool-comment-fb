@@ -129,15 +129,33 @@ class FacebookCommenter:
 
             await page.goto(post_url, wait_until="networkidle", timeout=60000)
 
-            # Hành vi giống người
+            # Human-like behavior
             if self.human_like_config.get('scrolling_enabled', True):
-                await page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.3)")
-                await asyncio.sleep(random.uniform(2, 5))
+                for _ in range(random.randint(1, 3)):
+                    await page.evaluate(f"window.scrollBy(0, {random.randint(200, 500)})")
+                    await asyncio.sleep(random.uniform(1, 3))
 
-            # Tìm ô comment (sử dụng aria-label để ổn định hơn)
+            # Chance to like the post
+            if self.human_like_config.get('liking_enabled', True) and random.random() < 0.8:
+                try:
+                    like_button_selector = 'div[aria-label="Thích"], div[aria-label="Like"]'
+                    await page.locator(like_button_selector).first.click()
+                    logging.info("Liked the post.")
+                    await asyncio.sleep(random.uniform(1, 3))
+                except Exception as e:
+                    logging.warning(f"Could not like the post: {e}")
+
+            # Find comment box and simulate typing
             comment_box_selector = 'div[aria-label*="Viết bình luận"], div[aria-label*="Write a comment"]'
-            await page.locator(comment_box_selector).first.click()
-            await page.keyboard.type(comment_text, delay=random.uniform(50, 150))
+            comment_box = page.locator(comment_box_selector).first
+            await comment_box.click()
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+
+            # Simulate typing
+            for char in comment_text:
+                await page.keyboard.type(char)
+                await asyncio.sleep(random.uniform(0.05, 0.2)) # Delay between keystrokes
+
             await asyncio.sleep(random.uniform(1, 3))
 
             # Gửi comment
@@ -159,11 +177,18 @@ class FacebookCommenter:
             db.add_comment_log(comment_log) # Hàm này cũng sẽ cập nhật status của post
 
         except TimeoutError:
-            logging.error(f"Timeout khi tải bài viết {post_id}. Bỏ qua.")
+            logging.error(f"Timeout while processing post {post_id}. Skipping.")
             db.update_post_status(post_id, 'error')
         except Exception as e:
-            logging.error(f"Lỗi khi bình luận vào bài viết {post_id}: {e}")
-            db.update_post_status(post_id, 'error')
+            if "Target page, context or browser has been closed" in str(e):
+                logging.error(f"Browser closed unexpectedly for post {post_id}. Re-raising to trigger a restart.")
+                raise
+            elif "locator.click" in str(e):
+                 logging.error(f"Could not find a clickable element (e.g., like or comment button) for post {post_id}. The page structure might have changed.")
+                 db.update_post_status(post_id, 'error')
+            else:
+                logging.error(f"An unexpected error occurred while commenting on post {post_id}: {e}")
+                db.update_post_status(post_id, 'error')
         finally:
             # Chờ ngẫu nhiên trước khi xử lý bài tiếp theo
             delay = random.randint(
