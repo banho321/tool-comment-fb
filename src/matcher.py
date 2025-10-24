@@ -121,8 +121,8 @@ class PostMatcher:
         Sử dụng regex word boundary để đảm bảo khớp chính xác từ.
         """
         text_to_search = post.get('normalized_text', '')
-        logging.debug(f"--- Matching Post ID: {post['post_id']} ---")
-        logging.debug(f"Normalized Post Text: {text_to_search[:200]}...")
+        logging.info(f"--- Matching Post ID: {post['post_id']} ---")
+        logging.info(f"Normalized Post Text: {text_to_search[:200]}...")
 
         for product in self.products:
             # Lấy tên và các alias của sản phẩm
@@ -133,9 +133,9 @@ class PostMatcher:
                 norm_keyword = normalize_text(keyword)
                 if not norm_keyword: continue
 
-                logging.debug(f"Checking for keyword: '{norm_keyword}' (Product: {product['name']})")
+                logging.info(f"Checking for keyword: '{norm_keyword}' (Product: {product['name']})")
                 if norm_keyword in text_to_search:
-                    logging.debug(f"SUCCESS (Direct Match): Found keyword '{norm_keyword}' in post.")
+                    logging.info(f"SUCCESS (Direct Match): Found keyword '{norm_keyword}' in post.")
                     return product
 
         # Fuzzy Matching Fallback

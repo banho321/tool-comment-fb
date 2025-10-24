@@ -213,7 +213,20 @@ class FacebookCrawler:
                     logging.warning("Post element is no longer visible, skipping.")
                     continue
 
-                full_text = await post_element.inner_text()
+                # Cố gắng tìm phần tử nội dung chính của bài đăng
+                content_selector = 'div[data-ad-preview="message"]'
+                try:
+                    content_element = post_element.locator(content_selector).first
+                    if await content_element.is_visible():
+                        full_text = await content_element.inner_text()
+                    else:
+                        # Fallback nếu không tìm thấy bộ chọn cụ thể
+                        full_text = await post_element.inner_text()
+                except Exception:
+                    # Fallback nếu có lỗi xảy ra
+                    full_text = await post_element.inner_text()
+
+                logging.info(f"--- CRAWLED POST CONTENT ---\n{full_text}\n--------------------------")
                 if not full_text:
                     continue
                 
